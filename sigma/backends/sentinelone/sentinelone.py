@@ -8,6 +8,7 @@ from sigma.conversion.deferred import DeferredQueryExpression, DeferredTextQuery
 from sigma.conditions import ConditionFieldEqualsValueExpression, ConditionOR, ConditionAND, ConditionNOT, ConditionItem
 from sigma.types import SigmaCompareExpression
 from typing import Union, ClassVar, Optional, Tuple, List, Dict, Any, Pattern
+from sigma.modifiers import SigmaAllModifier, SigmaStartswithModifier, SigmaEndswithModifier
 
 class SentinelOneBackend(TextQueryBackend):
     """SentinelOne DeepVisibility query backend."""
@@ -60,8 +61,8 @@ class SentinelOneBackend(TextQueryBackend):
     }
 
     # String matching operators. if none is appropriate eq_token is used.
-    #startswith_expression : ClassVar[str] = "startswith"
-    #endswith_expression   : ClassVar[str] = "endswith"
+    istarts_with_token : ClassVar[str] = "StartsWithCIS"
+    iends_with_token  : ClassVar[str] = "EndsWithCIS"
     contains_expression   : ClassVar[str] = "ContainsCIS"
     wildcard_match_expression : ClassVar[str] = "match"      # Special expression if wildcards can't be matched with the eq_token operator
 
@@ -90,9 +91,9 @@ class SentinelOneBackend(TextQueryBackend):
 
     # Field value in list, e.g. "field in (value list)" or "field containsall (value list)"
     convert_or_as_in : ClassVar[bool] = True                     # Convert OR as in-expression
-    convert_and_as_in : ClassVar[bool] = True                    # Convert AND as in-expression
-    in_expressions_allow_wildcards : ClassVar[bool] = True       # Values in list can contain wildcards. If set to False (default) only plain values are converted into in-expressions.
-    field_in_list_expression : ClassVar[str] = "{field} {op} ({list})"  # Expression for field in list of values as format string with placeholders {field}, {op} and {list}
+    convert_and_as_in : ClassVar[bool] = False                    # Convert AND as in-expression
+    in_expressions_allow_wildcards : ClassVar[bool] = False       # Values in list can contain wildcards. If set to False (default) only plain values are converted into in-expressions.
+    field_in_list_expression : ClassVar[str] = "{field} In AnyCase ({list})"  # Expression for field in list of values as format string with placeholders {field}, {op} and {list}
     or_in_operator : ClassVar[str] = "In"               # Operator used to convert OR into in-expressions. Must be set if convert_or_as_in is set
     and_in_operator : ClassVar[str] = "In"    # Operator used to convert AND into in-expressions. Must be set if convert_and_as_in is set
     list_separator : ClassVar[str] = ", "               # List element separator
@@ -118,6 +119,12 @@ class SentinelOneBackend(TextQueryBackend):
         # value uses `contains` modifier
         if val.startswith(self.wildcard_single) and val.endswith(self.wildcard_single):
             result = cond.field + self.token_separator + self.contains_expression + self.token_separator + self.field_quote + val_no_wc + self.field_quote
+        # startswith
+        elif val.endswith(self.wildcard_single) and not val.startswith(self.wildcard_single):
+            result = cond.field + self.token_separator + self.istarts_with_token + self.token_separator + self.field_quote + val_no_wc + self.field_quote
+        # endswith
+        elif val.startswith(self.wildcard_single) and not val.endswith(self.wildcard_single):
+            result = cond.field + self.token_separator + self.iends_with_token + self.token_separator + self.field_quote + val_no_wc + self.field_quote
         # plain equals
         else:
             no_case_str = self.no_case_str_expression.format(value=self.convert_value_str(cond.value, state))
@@ -125,6 +132,70 @@ class SentinelOneBackend(TextQueryBackend):
             
         return result
     
+    def decide_convert_condition_as_in_expression(self, cond : Union[ConditionOR, ConditionAND], state : ConversionState) -> bool:
+        """
+        Decide if an OR or AND expression should be converted as "field in (value list) or startswith/contains any/all" or as plain expression.
+        """
+        # Check if conversion of condition type is enabled
+        if (not self.convert_or_as_in and isinstance(cond, ConditionOR)
+           or not self.convert_and_as_in and isinstance(cond, ConditionAND)):
+           return False
+
+        # All arguments of the given condition must reference a field
+        if not all((
+            isinstance(arg, ConditionFieldEqualsValueExpression)
+            for arg in cond.args
+        )):
+            return False
+        
+
+        # Build a set of all fields appearing in condition arguments
+        fields = {
+            arg.field
+            for arg in cond.args
+        }
+        # All arguments must reference the same field
+        if len(fields) != 1:
+            return False
+
+        # All argument values must be strings or numbers
+        if not all([
+            isinstance(arg.value, ( SigmaString, SigmaNumber ))
+            for arg in cond.args
+        ]):
+           return False
+
+        # Check for plain strings if wildcards are not allowed for string expressions.
+        if not self.in_expressions_allow_wildcards and any([
+            arg.value.contains_special()
+            for arg in cond.args
+            if isinstance(arg.value, SigmaString) and isinstance(cond,ConditionAND)
+        ]):
+           return False
+
+        # All arguments must have the same modifier - use the wildcards to confirm this
+        vals = [str(arg.value.to_plain() or "") for arg in cond.args]
+        first_char = [char for char in "".join([val[0] for val in vals])]
+        last_char = [char for char in "".join([val[-1] for val in vals])]
+        # check for all-wildcard first character and mixed-wildcard last character
+        if all([char == self.wildcard_multi for char in first_char]) and self.wildcard_multi in last_char and not all([char == self.wildcard_multi for char in last_char]):
+            return False
+        # check for all-wildcard last character and mixed-wildcard first character
+        if all([char == self.wildcard_multi for char in last_char]) and self.wildcard_multi in first_char and not all([char == self.wildcard_multi for char in first_char]):
+            return False
+
+        # endswith or startwith is not allowed to be an In expression
+        for d_item in cond.parent.detection_items:
+            if SigmaStartswithModifier in d_item.modifiers or SigmaEndswithModifier in d_item.modifiers: 
+                return False
+        
+        # contains all is not allowed to be an In expression
+        for d_item in cond.parent.detection_items:
+            if SigmaAllModifier in d_item.modifiers: 
+                return False
+
+        # All checks passed, expression can be converted to in-expression
+        return True
 
     def convert_condition_as_in_expression(self, cond : Union[ConditionOR, ConditionAND], state : ConversionState) -> Union[str, DeferredQueryExpression]:
         """Conversion of field in value list conditions."""
