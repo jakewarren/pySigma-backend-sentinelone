@@ -40,6 +40,6 @@ def test_sentinelone_adfind_enumerations_pipeline():
                 CommandLine|contains: '-sc admincountdmp'
             condition: 1 of selection_*
     """)
-    ) == ["SrcProcCmdLine In ContainsCIS (\"lockoutduration\", \"lockoutthreshold\") OR SrcProcCmdLine ContainsCIS \"-sc admincountdmp\""] 
+    ) == ['SrcProcCmdLine In Contains Anycase ("lockoutduration", "lockoutthreshold") OR SrcProcCmdLine ContainsCIS "-sc admincountdmp"'] 
 
 

@@ -96,7 +96,7 @@ class SentinelOneBackend(TextQueryBackend):
     or_in_operator : ClassVar[str] = "In"               # Operator used to convert OR into in-expressions. Must be set if convert_or_as_in is set
     and_in_operator : ClassVar[str] = "In"    # Operator used to convert AND into in-expressions. Must be set if convert_and_as_in is set
     list_separator : ClassVar[str] = ", "               # List element separator
-    in_icontains_expression : ClassVar[Optional[str]] = "{field} In ContainsCIS ({list})"
+    in_icontains_expression : ClassVar[Optional[str]] = "{field} In Contains Anycase ({list})"
 
     # Value not bound to a field
     unbound_value_str_expression : ClassVar[str] = '"{value}"'   # Expression for string value not bound to a field as format string with placeholder {value}
