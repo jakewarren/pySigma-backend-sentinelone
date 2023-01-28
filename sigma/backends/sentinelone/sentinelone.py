@@ -103,7 +103,7 @@ class SentinelOneBackend(TextQueryBackend):
     unbound_value_num_expression : ClassVar[str] = '{value}'   # Expression for number value not bound to a field as format string with placeholder {value}
     unbound_value_re_expression : ClassVar[str] = '_=~{value}'    # Expression for regular expression not bound to a field as format string with placeholder {value}
   
-    no_case_str_expression = "Anycase {value}"
+    no_case_str_expression = "In Anycase ({value})"
   
 
     # TODO: implement custom methods for query elements not covered by the default backend base.
@@ -121,7 +121,8 @@ class SentinelOneBackend(TextQueryBackend):
         # plain equals
         else:
             no_case_str = self.no_case_str_expression.format(value=self.convert_value_str(cond.value, state))
-            result = cond.field + self.token_separator + self.eq_token + self.token_separator + no_case_str
+            result = cond.field + self.token_separator + no_case_str
+            
         return result
     
 

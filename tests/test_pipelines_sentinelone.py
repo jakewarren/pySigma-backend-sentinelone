@@ -19,7 +19,7 @@ def test_sentinelone_pipeline():
                 CommandLine: foo.exe
             condition: sel
         """)
-    ) == ['SrcProcCmdLine = Anycase "foo.exe"']
+    ) == ['SrcProcCmdLine In Anycase ("foo.exe")']
  
 
 # https://github.com/SigmaHQ/sigma/blob/master/rules/windows/process_creation/proc_creation_win_susp_adfind_enumeration.yml

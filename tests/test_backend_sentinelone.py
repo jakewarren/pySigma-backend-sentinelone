@@ -19,4 +19,34 @@ def test_sentinelone_simple_eq_nocase_query(sentinelone_backend : SentinelOneBac
                 condition: selection
             """)
 
-    assert sentinelone_backend.convert(rule) == ['field = Anycase "foo"']
+    assert sentinelone_backend.convert(rule) == ['field In Anycase ("foo")']
+
+def test_sentinelone_single_quote(sentinelone_backend : SentinelOneBackend):
+    assert sentinelone_backend.convert(
+            SigmaCollection.from_yaml("""
+                title: Test
+                status: test
+                logsource:
+                    category: process_creation
+                    product: windows
+                detection:
+                    selection:
+                        field: fo"o
+                    condition: selection
+            """)
+        ) == ['field In Anycase ("fo\\"o")']
+
+def test_sentinelone_triple_quote(sentinelone_backend : SentinelOneBackend):
+    assert sentinelone_backend.convert(
+            SigmaCollection.from_yaml("""
+                title: Test
+                status: test
+                logsource:
+                    category: process_creation
+                    product: windows
+                detection:
+                    selection:
+                        field: fo'"o
+                    condition: selection
+            """)
+        ) == ['field In Anycase ("fo\'\\"o")']
