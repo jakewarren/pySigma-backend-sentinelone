@@ -24,7 +24,7 @@ class SentinelOneBackend(TextQueryBackend):
         "default": "Deep Visibiltiy queries",
     }
     
-    requires_pipeline : bool = False            # TODO: does the backend requires that a processing pipeline is provided? This information can be used by user interface programs like Sigma CLI to warn users about inappropriate usage of the backend.
+    requires_pipeline : bool = True            
     precedence : ClassVar[Tuple[ConditionItem, ConditionItem, ConditionItem]] = (ConditionNOT, ConditionAND, ConditionOR)
     group_expression : ClassVar[str] = "({expr})"   # Expression for precedence override grouping as format string with {expr} placeholder
     #parenthesize: bool = True
@@ -67,7 +67,7 @@ class SentinelOneBackend(TextQueryBackend):
     wildcard_match_expression : ClassVar[str] = "match"      # Special expression if wildcards can't be matched with the eq_token operator
 
     # Regular expressions
-    re_expression : ClassVar[str] = "{field}=~{regex}"  # Regular expression query as format string with placeholders {field} and {regex}
+    re_expression : ClassVar[str] = "{field} RegExp \"{regex}\""  # Regular expression query as format string with placeholders {field} and {regex}
     re_escape_char : ClassVar[str] = "\\"               # Character used for escaping in regular expressions
     re_escape : ClassVar[Tuple[str]] = ()               # List of strings that are escaped
     re_escape_escape_char : bool = True                 # If True, the escape character is also escaped
@@ -97,14 +97,14 @@ class SentinelOneBackend(TextQueryBackend):
     or_in_operator : ClassVar[str] = "In"               # Operator used to convert OR into in-expressions. Must be set if convert_or_as_in is set
     and_in_operator : ClassVar[str] = "In"    # Operator used to convert AND into in-expressions. Must be set if convert_and_as_in is set
     list_separator : ClassVar[str] = ", "               # List element separator
-    in_icontains_expression : ClassVar[Optional[str]] = "{field} In Contains Anycase ({list})"
+    in_icontains_expression : ClassVar[Optional[str]] = "{field} In Contains AnyCase ({list})"
 
     # Value not bound to a field
     unbound_value_str_expression : ClassVar[str] = '"{value}"'   # Expression for string value not bound to a field as format string with placeholder {value}
     unbound_value_num_expression : ClassVar[str] = '{value}'   # Expression for number value not bound to a field as format string with placeholder {value}
     unbound_value_re_expression : ClassVar[str] = '_=~{value}'    # Expression for regular expression not bound to a field as format string with placeholder {value}
   
-    no_case_str_expression = "In Anycase ({value})"
+    no_case_str_expression = "In AnyCase ({value})"
   
 
     # TODO: implement custom methods for query elements not covered by the default backend base.

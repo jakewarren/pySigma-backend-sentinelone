@@ -19,7 +19,7 @@ def test_sentinelone_pipeline():
                 CommandLine: foo.exe
             condition: sel
         """)
-    ) == ['SrcProcCmdLine In Anycase ("foo.exe")']
+    ) == ['SrcProcCmdLine In AnyCase ("foo.exe")']
  
 
 # https://github.com/SigmaHQ/sigma/blob/master/rules/windows/process_creation/proc_creation_win_susp_adfind_enumeration.yml
@@ -40,6 +40,20 @@ def test_sentinelone_adfind_enumerations_pipeline():
                 CommandLine|contains: '-sc admincountdmp'
             condition: 1 of selection_*
     """)
-    ) == ['SrcProcCmdLine In Contains Anycase ("lockoutduration", "lockoutthreshold") OR SrcProcCmdLine ContainsCIS "-sc admincountdmp"'] 
+    ) == ['SrcProcCmdLine In Contains AnyCase ("lockoutduration", "lockoutthreshold") OR SrcProcCmdLine ContainsCIS "-sc admincountdmp"'] 
 
-
+def test_sentinelone_cidr_query():
+    with pytest.raises(SigmaTransformationError, match="The SentinelOne Deep Visibilty backend does not support CIDR queries."):
+        SentinelOneBackend().convert(
+            SigmaCollection.from_yaml("""
+                title: Test
+                status: test
+                logsource:
+                    category: process_creation
+                    product: windows
+                detection:
+                    selection:
+                        field|cidr: 192.168.0.0/16
+                    condition: selection
+            """)
+        )
